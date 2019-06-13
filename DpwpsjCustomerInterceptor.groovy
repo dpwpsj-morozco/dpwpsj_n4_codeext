@@ -21,7 +21,6 @@ import org.jdom.Text
  * S.no   Modified Date   Modified By   Jira Id     SFDC     Change Description
  * --------------------------------------------------------------------------------------------------------------------------------------------------
  * 1      29-May-2019     Orozco M      -------     ------   Publicar los cambios hechos en la entidad Cusotmers a un JMS
-
  */
 public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleInterceptor {
     /**
@@ -89,8 +88,14 @@ public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleIntercepto
         addChildTextElement(CUSTOMER_NAME, thisCustomer.getCustName(), elem);
         addChildTextElement(CUSTOMER_ROLE, thisCustomer.getCustRole().description, elem);
         addChildTextElement(CUSTOMER_TAX, thisCustomer.getCustTaxGroup().getTaxgrpDescription(), elem);
+        if (thisCustomer.getCustDueDateRule() != null){
+            addChildTextElement(CUSTOMER_DUE_DATE_RULE, thisCustomer.getCustDueDateRule().getName(), elem);
+
+        }else{
+            addChildTextElement(CUSTOMER_DUE_DATE_RULE, "", elem);
+        }
         if (thisCustomer.getCustDueDateValue() != null){
-            addChildTextElement(CUSTOMER_DUE_DATE, StringEscapeUtils.escapeXml(thisCustomer.getCustDueDateValue()), elem);
+            addChildTextElement(CUSTOMER_DUE_DATE, thisCustomer.getCustDueDateValue().toString(), elem);
         }else{
             addChildTextElement(CUSTOMER_DUE_DATE, "", elem);
         }
@@ -130,7 +135,7 @@ public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleIntercepto
             addChildTextElement(CUSTOMER_CONTACT_STATE, "", elem);
         }
         if (thisCustomer.getCustCountry() != null) {
-            addChildTextElement(CUSTOMER_CONTACT_COUNTRY, thisCustomer.getCustCountry().getCntryName(), elem);
+            addChildTextElement(CUSTOMER_CONTACT_COUNTRY, thisCustomer.getCustCountry().getCntryCode(), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_COUNTRY, "", elem);
         }
@@ -164,6 +169,7 @@ public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleIntercepto
     private final String CUSTOMER_ROLE = "role";
     private final String CUSTOMER_TAX = "tax";
     private final String CUSTOMER_DUE_DATE = "due_date";
+    private final String CUSTOMER_DUE_DATE_RULE = "due_date_rule";
     private final String CUSTOMER_CURRENCY = "currency";
     private final String CUSTOMER_TYPE = "type";
     private final String CUSTOMER_STATUS = "status";

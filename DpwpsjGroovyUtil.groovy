@@ -18,7 +18,6 @@ import javax.jms.Destination
 import javax.jms.MessageProducer
 import javax.jms.Session
 import javax.jms.TextMessage
-
 /**
  * @author: Mauricio Orozco
  * @date: 2019-MAY-29
