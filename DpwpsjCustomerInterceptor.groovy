@@ -1,5 +1,7 @@
 package com.navis.extension.dpwpsj
 import com.navis.argo.util.XmlUtil
+import com.navis.billing.BillingEntity
+import com.navis.billing.BillingField
 import com.navis.billing.business.model.Customer
 import com.navis.external.framework.entity.AbstractEntityLifecycleInterceptor
 import com.navis.external.framework.entity.EEntityView
@@ -10,7 +12,6 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.log4j.Logger
 import org.jdom.Element
 import org.jdom.Text
-
 /**
  * @author: Mauricio Orozco
  * @date: 2019-MAY-29
@@ -35,17 +36,11 @@ public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleIntercepto
         LOGGER.warn("Nombre entidad: " + inEntity.getEntityName());
         LOGGER.warn("EFieldChangesView: " + inOriginalFieldChanges.getFieldChangeCount());
         LOGGER.warn("EFieldChanges: " + inMoreFieldChanges.getFieldChangeCount());
-        String xmlExport = constructCustomerXML(inEntity);
-        LOGGER.warn(xmlExport);
-        LOGGER.warn("enviando a JMS");
-        Object codeExtLibrary = getLibrary("DpwpsjGroovyUtil");
-        try{
-            if (codeExtLibrary != null) {
-                int result = codeExtLibrary.sendXML2JMS(QUEUE_NAME, xmlExport);
-                LOGGER.warn(result);
-            }
-        } catch (Exception e){
-            LOGGER.error(e.printStackTrace());
+        try {
+            send2JMS(inEntity, inOriginalFieldChanges);
+        } catch (Exception e) {
+            String errorMsg = "GROOVY ERROR: DpwpsjCustomerInterceptor.onCreate():: " + e.getLocalizedMessage();
+            LOGGER.error(errorMsg + ":: Stack trace:: " + e.getStackTrace().toString());
         }
         LOGGER.warn(String.format("At end of %s.onCreate", getClass().getName()));
     }
@@ -58,94 +53,130 @@ public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleIntercepto
     @Override
     public void onUpdate(EEntityView inEntity, EFieldChangesView inOriginalFieldChanges, EFieldChanges inMoreFieldChanges) {
         LOGGER.warn(String.format("At start of %s.onUpdate", getClass().getName()));
-        LOGGER.warn("Nombre entidad: " + inEntity.getEntityName());
-        LOGGER.warn("EFieldChangesView: " + inOriginalFieldChanges.getFieldChangeCount());
-        LOGGER.warn("EFieldChanges: " + inMoreFieldChanges.getFieldChangeCount());
-        String xmlExport = constructCustomerXML(inEntity);
-        LOGGER.warn(xmlExport);
-        Object codeExtLibrary = getLibrary("DpwpsjGroovyUtil");
-        try{
-            if (codeExtLibrary != null) {
-                int result = codeExtLibrary.sendXML2JMS(QUEUE_NAME, xmlExport);
-                LOGGER.warn(result);
-            }
-        } catch (Exception e){
-            LOGGER.error(e.printStackTrace());
+//        LOGGER.warn("Nombre entidad: " + inEntity.getEntityName());
+//        LOGGER.warn("EFieldChangesView: " + inOriginalFieldChanges.getFieldChangeCount());
+//        LOGGER.warn("EFieldChanges: " + inMoreFieldChanges.getFieldChangeCount());
+        try {
+            send2JMS(inEntity, inOriginalFieldChanges);
+        } catch (Exception e) {
+            String errorMsg = "GROOVY ERROR: DpwpsjCustomerInterceptor.onUpdate():: " + e.getLocalizedMessage();
+            LOGGER.error(errorMsg + ":: Stack trace:: " + e.getStackTrace().toString());
         }
         LOGGER.warn(String.format("At end of %s.onUpdate", getClass().getName()));
+    }
+    private void send2JMS(EEntityView inEntity, EFieldChangesView inOriginalFieldChanges){
+        Customer thisCustomer = (Customer) inEntity._entity;
+        if (thisCustomer == null) {
+            LOGGER.error("Customer is Null, hence returning!");
+            return;
+        }
+        boolean hasChangeCustomerId = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_ID);
+        boolean hasChangeCustomerName = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_NAME);
+        boolean hasChangeCustomerRole = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_ROLE);
+        boolean hasChangeCustomerTaxGroup = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_TAX_GROUP);
+        boolean hasChangeCustomerDueDateRule = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_DUE_DATE_RULE);
+        boolean hasChangeCustomerDueDateValue = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_DUE_DATE_VALUE);
+        boolean hasChangeCustomerCurrency = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_PREFERRED_CURRENCY);
+        boolean hasChangeCustomerType = inOriginalFieldChanges.hasFieldChange(MetafieldIdFactory.valueOf(CUSTOM_CUSTOMER_TYPE));
+        boolean hasChangeCustomerStatus = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_LIFE_CYCLE_STATE);
+        boolean hasChangeCustomerContactName = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_CONTACTT_NAME);
+        boolean hasChangeCustomerAddressLine1 = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_ADDRESS_LINE1);
+        boolean hasChangeCustomerCity = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_CITY);
+        boolean hasChangeCustomerState = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_STATE);
+        boolean hasChangeCustomerCountry = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_COUNTRY);
+        boolean hasChangeCustomerTel = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_TEL);
+        boolean hasChangeCustomerEmail = inOriginalFieldChanges.hasFieldChange(BillingField.CUST_EMAIL_ADDRESS);
+        if ((hasChangeCustomerId) | (hasChangeCustomerName) | (hasChangeCustomerRole) | (hasChangeCustomerTaxGroup)
+                | (hasChangeCustomerDueDateRule) | (hasChangeCustomerDueDateValue) | (hasChangeCustomerCurrency)
+                | (hasChangeCustomerType) | (hasChangeCustomerStatus) | (hasChangeCustomerContactName)
+                | (hasChangeCustomerAddressLine1) | (hasChangeCustomerCity) | (hasChangeCustomerState)
+                | (hasChangeCustomerCountry) | (hasChangeCustomerTel) | (hasChangeCustomerEmail))
+        {
+            String xmlExport = constructCustomerXML(thisCustomer);
+            LOGGER.warn(xmlExport);
+            Object codeExtLibrary = getLibrary("DpwpsjGroovyUtil");
+            try{
+                if (codeExtLibrary != null) {
+                    int result = codeExtLibrary.sendXML2JMS(QUEUE_NAME, xmlExport);
+//                    LOGGER.warn(result);
+                }
+            } catch (Exception e){
+                LOGGER.error(e.printStackTrace());
+            }
+        }
+
     }
     /**
      * Ensamblar un texto XML basado en los valores de la entidad
      * @param inEntity
      * @return
      */
-    private String constructCustomerXML(EEntityView inEntity){
-        Customer thisCustomer = (Customer) inEntity._entity;
-        Element rootElem = new Element("export");
-        Element elem = new Element("customer");
+    private String constructCustomerXML(Customer inCustomer){
+        Element rootElem = new Element(XML_ROOT_TAG);
+        Element elem = new Element(CUSTOMER);
         rootElem.addContent(elem);
-        addChildTextElement(CUSTOMER_ID , thisCustomer.getCustId(), elem);
-        addChildTextElement(CUSTOMER_NAME, thisCustomer.getCustName(), elem);
-        addChildTextElement(CUSTOMER_ROLE, thisCustomer.getCustRole().description, elem);
-        addChildTextElement(CUSTOMER_TAX, thisCustomer.getCustTaxGroup().getTaxgrpDescription(), elem);
-        if (thisCustomer.getCustDueDateRule() != null){
-            addChildTextElement(CUSTOMER_DUE_DATE_RULE, thisCustomer.getCustDueDateRule().getName(), elem);
+        addChildTextElement(CUSTOMER_ID , inCustomer.getCustId(), elem);
+        addChildTextElement(CUSTOMER_NAME, inCustomer.getCustName(), elem);
+        addChildTextElement(CUSTOMER_ROLE, inCustomer.getCustRole().description, elem);
+        addChildTextElement(CUSTOMER_TAX, inCustomer.getCustTaxGroup().getTaxgrpDescription(), elem);
+        if (inCustomer.getCustDueDateRule() != null){
+            addChildTextElement(CUSTOMER_DUE_DATE_RULE, inCustomer.getCustDueDateRule().getName(), elem);
 
         }else{
             addChildTextElement(CUSTOMER_DUE_DATE_RULE, "", elem);
         }
-        if (thisCustomer.getCustDueDateValue() != null){
-            addChildTextElement(CUSTOMER_DUE_DATE, thisCustomer.getCustDueDateValue().toString(), elem);
+        if (inCustomer.getCustDueDateValue() != null){
+            addChildTextElement(CUSTOMER_DUE_DATE, inCustomer.getCustDueDateValue().toString(), elem);
         }else{
             addChildTextElement(CUSTOMER_DUE_DATE, "", elem);
         }
-        if (thisCustomer.getCustPreferredCurrency() != null){
-            addChildTextElement(CUSTOMER_CURRENCY, StringEscapeUtils.escapeXml(thisCustomer.getCustPreferredCurrency().getCurrencyId()), elem);
+        if (inCustomer.getCustPreferredCurrency() != null){
+            addChildTextElement(CUSTOMER_CURRENCY, StringEscapeUtils.escapeXml(inCustomer.getCustPreferredCurrency().getCurrencyId()), elem);
         }else{
             addChildTextElement(CUSTOMER_CURRENCY, "", elem);
         }
-        if (thisCustomer.getField(MetafieldIdFactory.valueOf(CUSTOM_CUSTOMER_TYPE)) != null){
-            addChildTextElement(CUSTOMER_TYPE, thisCustomer.getField(MetafieldIdFactory.valueOf(CUSTOM_CUSTOMER_TYPE)).toString(), elem);
+        if (inCustomer.getField(MetafieldIdFactory.valueOf(CUSTOM_CUSTOMER_TYPE)) != null){
+            addChildTextElement(CUSTOMER_TYPE, inCustomer.getField(MetafieldIdFactory.valueOf(CUSTOM_CUSTOMER_TYPE)).toString(), elem);
         }else{
             addChildTextElement(CUSTOMER_TYPE, "", elem);
         }
-        if (thisCustomer.getCustLifeCycleState() != null){
-            addChildTextElement(CUSTOMER_STATUS, thisCustomer.getCustLifeCycleState().getName(), elem);
+        if (inCustomer.getCustLifeCycleState() != null){
+            addChildTextElement(CUSTOMER_STATUS, inCustomer.getCustLifeCycleState().getName(), elem);
         }else{
             addChildTextElement(CUSTOMER_STATUS, "", elem);
         }
-        if (thisCustomer.getCustContacttName() != null){
-            addChildTextElement(CUSTOMER_CONTACT_NAME, StringEscapeUtils.escapeXml(thisCustomer.getCustContacttName()), elem);
+        if (inCustomer.getCustContacttName() != null){
+            addChildTextElement(CUSTOMER_CONTACT_NAME, StringEscapeUtils.escapeXml(inCustomer.getCustContacttName()), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_NAME, "", elem);
         }
-        if (thisCustomer.getCustAddressLine1() != null) {
-            addChildTextElement(CUSTOMER_CONTACT_ADDRESS, StringEscapeUtils.escapeXml(thisCustomer.getCustAddressLine1()), elem);
+        if (inCustomer.getCustAddressLine1() != null) {
+            addChildTextElement(CUSTOMER_CONTACT_ADDRESS, StringEscapeUtils.escapeXml(inCustomer.getCustAddressLine1()), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_ADDRESS, "", elem);
         }
-        if (thisCustomer.getCustCity() != null) {
-            addChildTextElement(CUSTOMER_CONTACT_CITY, thisCustomer.getCustCity(), elem);
+        if (inCustomer.getCustCity() != null) {
+            addChildTextElement(CUSTOMER_CONTACT_CITY, inCustomer.getCustCity(), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_CITY, "", elem);
         }
-        if (thisCustomer.getCustState() != null) {
-            addChildTextElement(CUSTOMER_CONTACT_STATE, thisCustomer.getCustState().getStateName(), elem);
+        if (inCustomer.getCustState() != null) {
+            addChildTextElement(CUSTOMER_CONTACT_STATE, inCustomer.getCustState().getStateName(), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_STATE, "", elem);
         }
-        if (thisCustomer.getCustCountry() != null) {
-            addChildTextElement(CUSTOMER_CONTACT_COUNTRY, thisCustomer.getCustCountry().getCntryCode(), elem);
+        if (inCustomer.getCustCountry() != null) {
+            addChildTextElement(CUSTOMER_CONTACT_COUNTRY, inCustomer.getCustCountry().getCntryCode(), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_COUNTRY, "", elem);
         }
-        if (thisCustomer.getCustTel() != null){
-            addChildTextElement(CUSTOMER_CONTACT_TELEPHONE, StringEscapeUtils.escapeXml(thisCustomer.getCustTel()), elem);
+        if (inCustomer.getCustTel() != null){
+            addChildTextElement(CUSTOMER_CONTACT_TELEPHONE, StringEscapeUtils.escapeXml(inCustomer.getCustTel()), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_TELEPHONE, "", elem);
         }
-        if (thisCustomer.getCustEmailAddress() != null){
-            addChildTextElement(CUSTOMER_CONTACT_EMAIL, StringEscapeUtils.escapeXml(thisCustomer.getCustEmailAddress()), elem);
+        if (inCustomer.getCustEmailAddress() != null){
+            addChildTextElement(CUSTOMER_CONTACT_EMAIL, StringEscapeUtils.escapeXml(inCustomer.getCustEmailAddress()), elem);
         }else{
             addChildTextElement(CUSTOMER_CONTACT_EMAIL, "", elem);
         }
@@ -164,6 +195,8 @@ public class DpwpsjCustomerInterceptor extends AbstractEntityLifecycleIntercepto
         inParentElement.addContent(childElement);
     }
     private final String QUEUE_NAME = "N4CUSTOMERS";
+    private final String XML_ROOT_TAG= "export";
+    private final String CUSTOMER = "customer";
     private final String CUSTOMER_ID = "id";
     private final String CUSTOMER_NAME = "name";
     private final String CUSTOMER_ROLE = "role";
