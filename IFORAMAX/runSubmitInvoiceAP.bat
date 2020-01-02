@@ -1,0 +1,1 @@
+java com.dpwpsj.integrations.orafus2maximo.SubmitPayablesInvoices
